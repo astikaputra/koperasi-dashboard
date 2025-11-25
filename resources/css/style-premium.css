@@ -1,0 +1,54 @@
+    .card-box {
+        background: #fff;
+        padding: 25px;
+        border-radius: 12px;
+        margin-bottom: 25px;
+        box-shadow: 0 5px 15px rgba(0,0,0,.08);
+    }
+    .form-grid {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px 35px;
+    }
+    .form-group label {
+        font-weight: 600;
+        margin-bottom: 6px;
+        display: block;
+        font-size: .9rem;
+    }
+    .form-control {
+        width: 100%;
+        padding: 9px 12px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+    }
+    .btn-primary {
+        background: #1e88e5;
+        border: 0;
+        padding: 9px 18px;
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+    }
+    .btn-danger {
+        background: #e53935;
+        border: 0;
+        padding: 9px 18px;
+        border-radius: 8px;
+        color: white;
+        cursor: pointer;
+    }
+    .title-section {
+        font-size: 1.3rem;
+        margin-bottom: 18px;
+        font-weight: 700;
+    }
+    .history-box {
+        margin-bottom: 15px;
+        padding: 12px;
+        border-left: 4px solid #1e88e5;
+        background: #f8f9fa;
+        border-radius: 6px;
+    }
+    .hidden { display: none; }
+
