@@ -252,6 +252,17 @@
                     </div>
 
                 </div>
+
+                <div class="form-group" style="margin-top:10px;">
+                <label>Markup yang digunakan:</label>
+
+                <ul style="margin-left:16px; color:#444;">
+                    @foreach($markup as $m)
+                        <li>{{ ucfirst($m->tipe) }} : {{ $m->persen }}%</li>
+                    @endforeach
+                </ul>
+            </div>
+
             </div>
 
             <!-- GAMBAR -->

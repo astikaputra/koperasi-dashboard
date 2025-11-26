@@ -13,20 +13,29 @@ class Produk extends Model
     protected $primaryKey = 'id_produk';
 
     protected $fillable = [
-        'barcode',
         'nama_produk',
-        'id_kategori',
-        'id_satuan',
-        'harga_beli',
-        'harga_manual',
-        'gunakan_markup',
-        'harga_jual',
+        'deskripsi',
+        'harga',
+        'harga_anggota',
+        'harga_karyawan',
+        'harga_umum',
+        'mode_harga',
         'stok',
+        'satuanbesar',
+        'satuankecil',
+        'isi',
         'konsinyasi',
         'gambar',
+        'kategori',
+        'barcode',
+        'harga_beli',
+        'status',
+        'min',
+        'max',
         'aktif'
     ];
 
+    public $timestamps = true;
     // =========================
     // RELASI
     // =========================

@@ -16,16 +16,20 @@ class ProdukController extends Controller
      * LIST PRODUK
      * ============================================================ */
     public function index(Request $request)
-    {
-        $status = $request->status; // Y / N
+{
+    $status = $request->status;
 
-        $produk = Produk::with('kategoriRelation')
-            ->when($status, fn($q) => $q->where('aktif', $status))
-            ->orderBy('id_produk', 'DESC')
-            ->paginate(15);
+    $produk = Produk::query()
+        ->when($status !== null && $status !== '', function ($q) use ($status) {
+            return $q->where('aktif', $status);
+        })
+        ->orderBy('id_produk', 'DESC')
+        ->paginate(15);
+//dd($produk);
+    return view('produk.index', compact('produk', 'status'));
+}
 
-        return view('produk.index', compact('produk', 'status'));
-    }
+
 
 
     /* ============================================================
@@ -36,7 +40,7 @@ class ProdukController extends Controller
         return view('produk.create', [
             'kategori' => Kategori::where('aktif', 'Y')->get(),
             'satuan'   => Satuan::where('aktif', 'Y')->get(),
-            'markup'   => Markup::first() // markup default
+            'markup' => Markup::where('aktif','Y')->get()
         ]);
     }
 
@@ -80,7 +84,7 @@ class ProdukController extends Controller
             'produk'   => Produk::findOrFail($id),
             'kategori' => Kategori::where('aktif', 'Y')->get(),
             'satuan'   => Satuan::where('aktif', 'Y')->get(),
-            'markup'   => Markup::first(),
+           'markup' => Markup::where('aktif','Y')->get(),
             'hargaLog' => HargaHistory::where('id_produk', $id)
                             ->orderBy('id', 'DESC')
                             ->get()
