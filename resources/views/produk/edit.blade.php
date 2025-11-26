@@ -255,14 +255,28 @@
 
                 </div>
 
+                <!-- TOMBOL PREVIEW -->
+                <div style="margin-top: 16px; text-align:right;">
+                    <button type="button" id="btnPreviewHarga"
+                        style="background:#4f46e5;color:white;padding:10px 22px;border:none;
+                            border-radius:8px;cursor:pointer;font-weight:600;">
+                        Preview Harga
+                    </button>
+                </div>
+
+
                 <div class="form-group" style="margin-top:10px;">
                 <label>Markup yang digunakan:</label>
 
-                <ul style="margin-left:16px; color:#444;">
-                    @foreach($markup as $m)
-                        <li>{{ ucfirst($m->tipe) }} : {{ $m->persen }}%</li>
-                    @endforeach
-                </ul>
+                @if($markup && $markup->count())
+                    <ul style="margin-left:16px; color:#444;">
+                        @foreach($markup as $m)
+                            <li>{{ ucfirst($m->tipe) }} : {{ $m->persen }}%</li>
+                        @endforeach
+                    </ul>
+                @else
+                    <span style="color:#888;">Markup belum diatur.</span>
+                @endif
             </div>
 
             </div>
@@ -286,41 +300,96 @@
         </form>
     </div>
 
-    <script>
-        const radioManual = document.getElementById("mode_manual");
-        const radioAuto   = document.getElementById("mode_auto");
-        const manualFields = document.querySelectorAll(".harga-manual");
+<!-- ========== MODAL PREVIEW HARGA ========== -->
+<div id="modalPreview" 
+     style="display:none; position:fixed; top:0; left:0; width:100%; height:100%;
+            background:rgba(0,0,0,0.45); z-index:9999;">
 
-        function switchMode() {
-            if (radioAuto.checked) {
-                manualFields.forEach(f => {
-                    f.parentElement.style.display = "none";
-                    f.removeAttribute("required");
-                });
-            } else {
-                manualFields.forEach(f => {
-                    f.parentElement.style.display = "flex";
-                    f.setAttribute("required", true);
-                });
-            }
-        }
+    <div style="background:white; width:420px; margin:110px auto; padding:26px;
+                border-radius:12px; position:relative; box-shadow:0 5px 20px rgba(0,0,0,0.18);">
 
-        radioManual.addEventListener("change", switchMode);
-        radioAuto.addEventListener("change", switchMode);
+        <h3 style="font-weight:700; font-size:20px; margin-bottom:14px;">
+            Preview Harga Produk
+        </h3>
 
-        switchMode();
+        <table style="width:100%; margin-bottom:20px;">
+            <tr>
+                <td style="padding:8px 0;">Harga Anggota</td>
+                <td id="prev_anggota" style="text-align:right; font-weight:700;">-</td>
+            </tr>
+            <tr>
+                <td style="padding:8px 0;">Harga Karyawan</td>
+                <td id="prev_karyawan" style="text-align:right; font-weight:700;">-</td>
+            </tr>
+            <tr>
+                <td style="padding:8px 0;">Harga Umum</td>
+                <td id="prev_umum" style="text-align:right; font-weight:700;">-</td>
+            </tr>
+        </table>
 
-    // HITUNG HARGA OTOMATIS
+        <button id="closeModal" 
+            style="background:#4f46e5; color:white; padding:10px 22px; border:none;
+                   border-radius:8px; font-weight:600; width:100%; cursor:pointer;">
+            Tutup
+        </button>
+    </div>
+</div>
+<script>
+document.addEventListener("DOMContentLoaded", function() {
+
+    // ===================
+    // ELEMENTS
+    // ===================
+    const radioManual = document.getElementById("mode_manual");
+    const radioAuto   = document.getElementById("mode_auto");
+    const manualFields = document.querySelectorAll(".harga-manual");
+
     const hargaBeliInput  = document.querySelector("input[name='harga_beli']");
     const hargaAnggota    = document.querySelector("input[name='harga_anggota']");
     const hargaKaryawan   = document.querySelector("input[name='harga_karyawan']");
     const hargaUmum       = document.querySelector("input[name='harga_umum']");
 
-    // Ambil markup dari server (di-inject ke JS)
-    const markupAnggota  = {{ $markup->where('tipe','anggota')->value('persen') ?? 0 }};
-    const markupKaryawan = {{ $markup->where('tipe','karyawan')->value('persen') ?? 0 }};
-    const markupUmum     = {{ $markup->where('tipe','umum')->value('persen') ?? 0 }};
+    const btnPreview     = document.getElementById("btnPreviewHarga");
+    const modalPreview   = document.getElementById("modalPreview");
+    const closeModal     = document.getElementById("closeModal");
 
+    const prevAnggota    = document.getElementById("prev_anggota");
+    const prevKaryawan   = document.getElementById("prev_karyawan");
+    const prevUmum       = document.getElementById("prev_umum");
+
+    // ===================
+    // MARKUP FROM DB
+    // ===================
+    const markupMap = @json($markup->keyBy('tipe')->map->persen);
+
+    const markupAnggota  = parseFloat(markupMap['anggota']  ?? 0);
+    const markupKaryawan = parseFloat(markupMap['karyawan'] ?? 0);
+    const markupUmum     = parseFloat(markupMap['umum']     ?? 0);
+
+    // ===================
+    // MODE SWITCH
+    // ===================
+    function switchMode() {
+        if (radioAuto.checked) {
+            manualFields.forEach(f => {
+                f.parentElement.style.display = "none";
+                f.removeAttribute("required");
+            });
+        } else {
+            manualFields.forEach(f => {
+                f.parentElement.style.display = "flex";
+                f.setAttribute("required", true);
+            });
+        }
+    }
+
+    radioManual.addEventListener("change", switchMode);
+    radioAuto.addEventListener("change", switchMode);
+    switchMode();
+
+    // ===================
+    // AUTO HARGA HITUNG
+    // ===================
     function hitungAuto() {
         if (!radioAuto.checked) return;
 
@@ -332,9 +401,42 @@
     }
 
     hargaBeliInput.addEventListener("input", hitungAuto);
-    radioAuto.addEventListener("change", hitungAuto);
-</script>
 
+    // ===================
+    // MODAL PREVIEW
+    // ===================
+    function rupiah(x) {
+        return "Rp " + (parseFloat(x) || 0).toLocaleString("id-ID");
+    }
+
+    function openPreview() {
+
+        if (!radioAuto.checked) {
+            alert("Preview hanya tersedia jika Mode Harga = AUTO");
+            return;
+        }
+
+        let beli   = parseFloat(hargaBeliInput.value) || 0;
+
+        prevAnggota.innerText  = rupiah(Math.round(beli + (beli * markupAnggota / 100)));
+        prevKaryawan.innerText = rupiah(Math.round(beli + (beli * markupKaryawan / 100)));
+        prevUmum.innerText     = rupiah(Math.round(beli + (beli * markupUmum / 100)));
+
+        modalPreview.style.display = "block";
+    }
+
+    btnPreview.addEventListener("click", openPreview);
+
+    closeModal.addEventListener("click", () => {
+        modalPreview.style.display = "none";
+    });
+
+    modalPreview.addEventListener("click", (e) => {
+        if (e.target === modalPreview) modalPreview.style.display = "none";
+    });
+
+});
+</script>
 
 
 </x-app-layout>

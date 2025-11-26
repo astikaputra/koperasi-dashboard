@@ -256,11 +256,15 @@
                 <div class="form-group" style="margin-top:10px;">
                 <label>Markup yang digunakan:</label>
 
-                <ul style="margin-left:16px; color:#444;">
-                    @foreach($markup as $m)
-                        <li>{{ ucfirst($m->tipe) }} : {{ $m->persen }}%</li>
-                    @endforeach
-                </ul>
+                @if($markup && $markup->count())
+                    <ul style="margin-left:16px; color:#444;">
+                        @foreach($markup as $m)
+                            <li>{{ ucfirst($m->tipe) }} : {{ $m->persen }}%</li>
+                        @endforeach
+                    </ul>
+                @else
+                    <span style="color:#888;">Markup belum diatur.</span>
+                @endif
             </div>
 
             </div>
@@ -324,5 +328,21 @@
         radioAuto.addEventListener("change", switchMode);
 
         switchMode();
+
+    const markupMap = @json($markup->keyBy('tipe')->map->persen);
+
+    const markupAnggota  = parseFloat(markupMap['anggota'] ?? 0);
+    const markupKaryawan = parseFloat(markupMap['karyawan'] ?? 0);
+    const markupUmum     = parseFloat(markupMap['umum'] ?? 0);
+
+    function hitungAuto() {
+        if (!document.getElementById("mode_auto").checked) return;
+
+        let beli = parseFloat(document.querySelector("input[name='harga_beli']").value) || 0;
+
+        document.querySelector("input[name='harga_anggota']").value  = Math.round(beli + (beli * markupAnggota / 100));
+        document.querySelector("input[name='harga_karyawan']").value = Math.round(beli + (beli * markupKaryawan / 100));
+        document.querySelector("input[name='harga_umum']").value     = Math.round(beli + (beli * markupUmum / 100));
+    }
     </script>
 </x-app-layout>
