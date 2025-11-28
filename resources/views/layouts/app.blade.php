@@ -47,37 +47,69 @@
                 <h2>Koperasi</h2>
             </div>
 
-            <ul>
-                <li class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
-                    <a href="{{ route('dashboard') }}"><i class="fas fa-tachometer-alt" style="width:20px"></i><span style="margin-left:8px">Dashboard</span></a>
-                </li>
+<ul>
+    <li class="{{ request()->routeIs('dashboard') ? 'active' : '' }}">
+        <a href="{{ route('dashboard') }}">
+            <i class="fas fa-tachometer-alt" style="width:20px"></i>
+            <span style="margin-left:8px">Dashboard</span>
+        </a>
+    </li>
 
-                <!-- <li><a href="#"><i class="fas fa-box"></i><span style="margin-left:8px">Produk</span></a></li> -->
-                <li class="{{ request()->is('produk*') ? 'active' : '' }}">
-                    <a href="{{ route('produk.index') }}">
-                        <i class="fas fa-box"></i>
-                        <span style="margin-left:8px" > Produk</span>
-                    </a>
-                </li>
-                <li class="{{ request()->is('kategori*') ? 'active' : '' }}">
-                    <a href="{{ route('kategori.index') }}">
-                        <i class="fas fa-tags"></i>
-                        <span style="margin-left:8px" > Kategori Produk</span>
-                    </a>
-                </li>
-                <li><a href="#"><i class="fas fa-truck"></i><span style="margin-left:8px">Pemasok</span></a></li>
-                <li><a href="#"><i class="fas fa-shopping-cart"></i><span style="margin-left:8px">Penjualan</span></a></li>
-                <li><a href="#"><i class="fas fa-file-invoice"></i><span style="margin-left:8px">Pembayaran</span></a></li>
-                <li><a href="#"><i class="fas fa-chart-line"></i><span style="margin-left:8px">Laporan</span></a></li>
-                <li><a href="#"><i class="fas fa-cog"></i><span style="margin-left:8px">Pengaturan</span></a></li>
+    <li class="{{ request()->is('produk*') ? 'active' : '' }}">
+        <a href="{{ route('produk.index') }}">
+            <i class="fas fa-box"></i>
+            <span style="margin-left:8px">Produk</span>
+        </a>
+    </li>
 
-                <li>
-                    <form method="POST" action="{{ route('logout') }}">
-                        @csrf
-                        <button style="margin-top:10px" class="btn btn-primary w-full">Logout</button>
-                    </form>
-                </li>
-            </ul>
+    <li class="{{ request()->is('kategori*') ? 'active' : '' }}">
+        <a href="{{ route('kategori.index') }}">
+            <i class="fas fa-tags"></i>
+            <span style="margin-left:8px">Kategori Produk</span>
+        </a>
+    </li>
+
+    <li><a href="#"><i class="fas fa-truck"></i><span style="margin-left:8px">Pemasok</span></a></li>
+
+    <li><a href="#"><i class="fas fa-shopping-cart"></i><span style="margin-left:8px">Penjualan</span></a></li>
+
+    <li><a href="#"><i class="fas fa-file-invoice"></i><span style="margin-left:8px">Pembayaran</span></a></li>
+
+    <li><a href="#"><i class="fas fa-chart-line"></i><span style="margin-left:8px">Laporan</span></a></li>
+
+    <!-- ===================== -->
+    <!--      PENGATURAN       -->
+    <!-- ===================== -->
+    <li class="{{ request()->is('markup*') || request()->is('overhead*') ? 'active' : '' }}">
+        <a href="#">
+            <i class="fas fa-cog"></i>
+            <span style="margin-left:8px">Pengaturan</span>
+        </a>
+
+        <ul class="nav nav-second-level" style="margin-left:20px; margin-top:5px;">
+            <li class="{{ request()->is('markup*') ? 'active' : '' }}">
+                <a href="{{ route('markup.index') }}">
+                    → Markup Global
+                </a>
+            </li>
+
+            <li class="{{ request()->is('overhead*') ? 'active' : '' }}">
+                <a href="{{ route('overhead.index') }}">
+                    → Overhead Biaya
+                </a>
+            </li>
+        </ul>
+    </li>
+
+    <li>
+        <form method="POST" action="{{ route('logout') }}">
+            @csrf
+            <button style="margin-top:10px" class="btn btn-primary w-full">Logout</button>
+        </form>
+    </li>
+
+</ul>
+
         </div>
 
         <!-- MAIN CONTENT -->
