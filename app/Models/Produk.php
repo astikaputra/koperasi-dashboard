@@ -32,8 +32,11 @@ class Produk extends Model
         'status',
         'min',
         'max',
-        'aktif'
-    ];
+        'aktif',
+        'markup_override',
+        'minimum_price',
+        'maximum_price'
+      ];
 
     public $timestamps = true;
     // =========================
@@ -77,5 +80,61 @@ class Produk extends Model
         }
 
         return $this->harga_manual ?: $this->harga_jual;
+    }
+
+        // Relationships
+    public function pricings()
+    {
+        return $this->hasMany(ProductPricing::class, 'product_id', 'id_produk');
+    }
+
+    public function activePricing($customerType = 'umum')
+    {
+        return $this->hasOne(ProductPricing::class, 'product_id', 'id_produk')
+            ->where('customer_type', $customerType)
+            ->where('is_active', true)
+            ->where('effective_date', '<=', now()->toDateString())
+            ->latest('effective_date');
+    }
+
+    public function category()
+    {
+        return $this->belongsTo(Category::class, 'kategori', 'id_kategori');
+    }
+
+    public function transactionTrackings()
+    {
+        return $this->hasMany(TransactionMarkupTracking::class, 'product_id', 'id_produk');
+    }
+
+    // Scopes
+    public function scopeAutoPriced($query)
+    {
+        return $query->where('mode_harga', 'auto');
+    }
+
+    public function scopeManualPriced($query)
+    {
+        return $query->where('mode_harga', 'manual');
+    }
+
+    public function scopeActive($query)
+    {
+        return $query->where('aktif', 'Y');
+    }
+
+    // Helpers
+    public function getCurrentPrice($customerType = 'umum')
+    {
+        if ($this->mode_harga === 'manual') {
+            return match($customerType) {
+                'anggota' => $this->harga_anggota,
+                'karyawan' => $this->harga_karyawan,
+                default => $this->harga_umum
+            };
+        }
+
+        $pricing = $this->activePricing($customerType)->first();
+        return $pricing ? $pricing->selling_price : 0;
     }
 }

@@ -1,68 +1,99 @@
 <?php
 // resources/views/dashboard.blade.php
+use App\Models\DailyDashboardAggregate;
+use App\Models\TransactionMarkupTracking;
 use Carbon\Carbon;
 
-// Cek jika tabel exist, jika tidak gunakan data dummy
-try {
-    // Cek jika tabel daily_dashboard_aggregates ada
-    $tableExists = \Illuminate\Support\Facades\Schema::hasTable('daily_dashboard_aggregates');
-    
-    if ($tableExists) {
-        // Gunakan query builder langsung untuk menghindari model error
-        $summary = DB::table('daily_dashboard_aggregates')
-            ->where('date', today()->toDateString())
-            ->where('source', 'TOTAL')
-            ->where('customer_type', 'TOTAL')
-            ->first();
-    } else {
-        $summary = null;
-    }
-} catch (\Exception $e) {
-    $summary = null;
+// Ambil data untuk dashboard
+$today = today()->toDateString();
+$summary = DailyDashboardAggregate::where('date', $today)
+    ->where('source', 'TOTAL')
+    ->where('customer_type', 'TOTAL')
+    ->first();
+
+// Jika belum ada data, buat default
+if (!$summary) {
+    $summary = (object) [
+        'total_sales' => 0,
+        'total_markup' => 0,
+        'total_overhead' => 0,
+        'total_tax' => 0,
+        'total_gross_profit' => 0,
+        'margin_percent' => 0,
+        'total_transactions' => 0,
+        'total_quantity' => 0
+    ];
 }
 
-// Default values jika tidak ada data
-$summaryData = $summary ? (object) [
-    'total_sales' => $summary->total_sales,
-    'total_markup' => $summary->total_markup,
-    'total_overhead' => $summary->total_overhead,
-    'total_tax' => $summary->total_tax,
-    'total_gross_profit' => $summary->total_gross_profit,
-    'margin_percent' => $summary->margin_percent,
-    'total_transactions' => $summary->total_transactions,
-    'total_quantity' => $summary->total_quantity
-] : (object) [
-    'total_sales' => 0,
-    'total_markup' => 0,
-    'total_overhead' => 0,
-    'total_tax' => 0,
-    'total_gross_profit' => 0,
-    'margin_percent' => 0,
-    'total_transactions' => 0,
-    'total_quantity' => 0
-];
+// Data untuk chart bulanan
+$monthlyData = DailyDashboardAggregate::selectRaw('
+        DATE_FORMAT(date, "%Y-%m") as month,
+        SUM(total_sales) as total_sales,
+        SUM(total_markup) as total_markup,
+        SUM(total_gross_profit) as total_profit,
+        CASE 
+            WHEN SUM(total_sales) > 0 
+            THEN (SUM(total_gross_profit) / SUM(total_sales)) * 100 
+            ELSE 0 
+        END as margin_percent
+    ')
+    ->where('source', 'TOTAL')
+    ->where('customer_type', 'TOTAL')
+    ->where('date', '>=', Carbon::now()->subMonths(5)->startOfMonth())
+    ->groupBy('month')
+    ->orderBy('month')
+    ->get();
 
-// Data untuk chart (dummy dulu)
-$chartMonths = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun'];
-$chartSales = [18, 22, 25, 24, 26, 28.5];
-$chartMarkup = [3.6, 4.4, 5, 4.8, 5.2, 5.7];
-$chartMargin = [20, 20, 20, 20, 20, 20];
+// Top products
+$topProducts = TransactionMarkupTracking::selectRaw('
+        product_id,
+        pricing_mode,
+        SUM(quantity) as total_quantity,
+        SUM(total_sales) as total_sales,
+        SUM(total_gross_profit) as total_profit,
+        CASE 
+            WHEN SUM(total_sales) > 0 
+            THEN (SUM(total_gross_profit) / SUM(total_sales)) * 100 
+            ELSE 0 
+        END as margin_percent
+    ')
+    ->whereDate('transaction_date', $today)
+    ->groupBy('product_id', 'pricing_mode')
+    ->orderByDesc('total_profit')
+    ->limit(5)
+    ->get();
 
-// Top products (dummy dulu)
-$topProducts = [];
+// Customer type analysis
+$customerTypes = DailyDashboardAggregate::where('date', $today)
+    ->where('source', 'TOTAL')
+    ->where('customer_type', '!=', 'TOTAL')
+    ->get();
 
-// Customer types (dummy dulu)
-$customerTypes = [
-    (object) ['customer_type' => 'umum', 'total_sales' => 15000000, 'total_markup' => 3000000, 'total_transactions' => 45],
-    (object) ['customer_type' => 'anggota', 'total_sales' => 8000000, 'total_markup' => 1600000, 'total_transactions' => 25],
-    (object) ['customer_type' => 'karyawan', 'total_sales' => 5000000, 'total_markup' => 1000000, 'total_transactions' => 15]
-];
+// Pricing mode comparison
+$pricingComparison = TransactionMarkupTracking::selectRaw('
+        pricing_mode,
+        COUNT(*) as total_transactions,
+        SUM(total_sales) as total_sales,
+        SUM(total_markup) as total_markup,
+        SUM(total_gross_profit) as total_profit
+    ')
+    ->whereDate('transaction_date', $today)
+    ->groupBy('pricing_mode')
+    ->get();
 
-// Pricing comparison (dummy dulu)
-$pricingComparison = [
-    (object) ['pricing_mode' => 'auto', 'total_transactions' => 65, 'total_markup' => 4200000],
-    (object) ['pricing_mode' => 'manual', 'total_transactions' => 20, 'total_markup' => 1400000]
-];
+// Prepare chart data
+$chartMonths = [];
+$chartSales = [];
+$chartMarkup = [];
+$chartMargin = [];
+
+foreach ($monthlyData as $data) {
+    $month = Carbon::createFromFormat('Y-m', $data->month)->format('M');
+    $chartMonths[] = $month;
+    $chartSales[] = $data->total_sales / 1000000; // Convert to juta
+    $chartMarkup[] = $data->total_markup / 1000000; // Convert to juta
+    $chartMargin[] = $data->margin_percent;
+}
 ?>
 
 <x-app-layout>
@@ -78,14 +109,14 @@ $pricingComparison = [
                 <div>
                     <h3 style="margin:0;color:#666;font-size:0.9rem">Total Penjualan</h3>
                     <div style="font-size:1.6rem;font-weight:700;color:#2c3e50">
-                        Rp {{ number_format($summaryData->total_sales, 0, ',', '.') }}
+                        Rp {{ number_format($summary->total_sales, 0, ',', '.') }}
                     </div>
                 </div>
             </div>
             <div style="margin-top:8px;font-size:0.9rem">
                 <span style="color:#666">Margin:</span>
-                <span style="color:{{ $summaryData->margin_percent >= 20 ? '#27ae60' : ($summaryData->margin_percent >= 10 ? '#f39c12' : '#e74c3c') }};font-weight:600;margin-left:5px">
-                    {{ number_format($summaryData->margin_percent, 1) }}%
+                <span style="color:{{ $summary->margin_percent >= 20 ? '#27ae60' : ($summary->margin_percent >= 10 ? '#f39c12' : '#e74c3c') }};font-weight:600;margin-left:5px">
+                    {{ number_format($summary->margin_percent, 1) }}%
                 </span>
             </div>
         </div>
@@ -99,14 +130,14 @@ $pricingComparison = [
                 <div>
                     <h3 style="margin:0;color:#666;font-size:0.9rem">Total Markup</h3>
                     <div style="font-size:1.6rem;font-weight:700;color:#2c3e50">
-                        Rp {{ number_format($summaryData->total_markup, 0, ',', '.') }}
+                        Rp {{ number_format($summary->total_markup, 0, ',', '.') }}
                     </div>
                 </div>
             </div>
             <div style="margin-top:8px;font-size:0.85rem;color:#666">
                 @php
-                    $autoMarkup = collect($pricingComparison)->where('pricing_mode', 'auto')->first()->total_markup ?? 0;
-                    $manualMarkup = collect($pricingComparison)->where('pricing_mode', 'manual')->first()->total_markup ?? 0;
+                    $autoMarkup = $pricingComparison->where('pricing_mode', 'auto')->first()->total_markup ?? 0;
+                    $manualMarkup = $pricingComparison->where('pricing_mode', 'manual')->first()->total_markup ?? 0;
                 @endphp
                 <div>Auto: Rp {{ number_format($autoMarkup, 0, ',', '.') }}</div>
                 <div>Manual: Rp {{ number_format($manualMarkup, 0, ',', '.') }}</div>
@@ -122,13 +153,13 @@ $pricingComparison = [
                 <div>
                     <h3 style="margin:0;color:#666;font-size:0.9rem">Biaya & Pajak</h3>
                     <div style="font-size:1.6rem;font-weight:700;color:#2c3e50">
-                        Rp {{ number_format($summaryData->total_overhead + $summaryData->total_tax, 0, ',', '.') }}
+                        Rp {{ number_format($summary->total_overhead + $summary->total_tax, 0, ',', '.') }}
                     </div>
                 </div>
             </div>
             <div style="margin-top:8px;font-size:0.85rem;color:#666">
-                <div>Overhead: Rp {{ number_format($summaryData->total_overhead, 0, ',', '.') }}</div>
-                <div>Pajak: Rp {{ number_format($summaryData->total_tax, 0, ',', '.') }}</div>
+                <div>Overhead: Rp {{ number_format($summary->total_overhead, 0, ',', '.') }}</div>
+                <div>Pajak: Rp {{ number_format($summary->total_tax, 0, ',', '.') }}</div>
             </div>
         </div>
 
@@ -141,13 +172,13 @@ $pricingComparison = [
                 <div>
                     <h3 style="margin:0;color:#666;font-size:0.9rem">Laba Kotor</h3>
                     <div style="font-size:1.6rem;font-weight:700;color:#2c3e50">
-                        Rp {{ number_format($summaryData->total_gross_profit, 0, ',', '.') }}
+                        Rp {{ number_format($summary->total_gross_profit, 0, ',', '.') }}
                     </div>
                 </div>
             </div>
             <div style="margin-top:8px;font-size:0.85rem;color:#666">
-                <div>{{ $summaryData->total_transactions }} transaksi</div>
-                <div>{{ $summaryData->total_quantity }} item terjual</div>
+                <div>{{ $summary->total_transactions }} transaksi</div>
+                <div>{{ $summary->total_quantity }} item terjual</div>
             </div>
         </div>
     </div>
@@ -173,7 +204,7 @@ $pricingComparison = [
                 <span style="font-size:0.85rem;color:#666">Hari Ini</span>
             </div>
             
-            @if(count($topProducts) > 0)
+            @if($topProducts->count() > 0)
             <div style="overflow-x:auto">
                 <table style="width:100%;border-collapse:collapse">
                     <thead>
@@ -186,9 +217,12 @@ $pricingComparison = [
                     </thead>
                     <tbody>
                         @foreach($topProducts as $product)
+                        @php
+                            $productName = App\Models\Product::find($product->product_id)->nama_produk ?? 'Produk #' . $product->product_id;
+                        @endphp
                         <tr style="border-bottom:1px solid #eee">
                             <td style="padding:10px">
-                                <div style="font-weight:600;font-size:0.9rem">Product #{{ $product->product_id }}</div>
+                                <div style="font-weight:600;font-size:0.9rem">{{ $productName }}</div>
                                 <div style="font-size:0.75rem;color:#666;margin-top:2px">
                                     @if($product->pricing_mode == 'manual')
                                     <span style="background:#f3e5f5;color:#7b1fa2;padding:2px 6px;border-radius:3px">MANUAL</span>
@@ -221,9 +255,6 @@ $pricingComparison = [
             <div style="text-align:center;padding:40px 20px;color:#999">
                 <div style="font-size:3rem;margin-bottom:10px">📊</div>
                 <div>Belum ada data transaksi hari ini</div>
-                <div style="font-size:0.85rem;margin-top:10px">
-                    Data akan muncul setelah menjalankan migration dan seeder
-                </div>
             </div>
             @endif
         </div>
@@ -245,7 +276,7 @@ $pricingComparison = [
                 
                 @foreach($customerIcons as $type => $info)
                 @php
-                    $data = collect($customerTypes)->where('customer_type', $type)->first();
+                    $data = $customerTypes->where('customer_type', $type)->first();
                 @endphp
                 <div style="padding:15px;border-bottom:1px solid #eee;background:{{ $data ? '#f8f9fa' : 'transparent' }};border-radius:8px;margin-bottom:10px">
                     <div style="display:flex;justify-content:space-between;align-items:center">
@@ -282,19 +313,19 @@ $pricingComparison = [
                     <div style="display:flex;justify-content:space-between;text-align:center">
                         <div>
                             <div style="font-size:1.8rem;font-weight:700">
-                                {{ collect($pricingComparison)->where('pricing_mode', 'auto')->first()->total_transactions ?? 0 }}
+                                {{ $pricingComparison->where('pricing_mode', 'auto')->first()->total_transactions ?? 0 }}
                             </div>
                             <div style="font-size:0.8rem;opacity:0.9">Auto Pricing</div>
                         </div>
                         <div>
                             <div style="font-size:1.8rem;font-weight:700">
-                                {{ collect($pricingComparison)->where('pricing_mode', 'manual')->first()->total_transactions ?? 0 }}
+                                {{ $pricingComparison->where('pricing_mode', 'manual')->first()->total_transactions ?? 0 }}
                             </div>
                             <div style="font-size:0.8rem;opacity:0.9">Manual Pricing</div>
                         </div>
                         <div>
                             <div style="font-size:1.8rem;font-weight:700">
-                                {{ $summaryData->total_quantity }}
+                                {{ $summary->total_quantity }}
                             </div>
                             <div style="font-size:0.8rem;opacity:0.9">Total Item</div>
                         </div>
@@ -410,10 +441,10 @@ $pricingComparison = [
                 labels: ['Markup', 'Overhead', 'Pajak', 'Laba Kotor'],
                 datasets: [{
                     data: [
-                        {{ $summaryData->total_markup }},
-                        {{ $summaryData->total_overhead }},
-                        {{ $summaryData->total_tax }},
-                        {{ $summaryData->total_gross_profit }}
+                        {{ $summary->total_markup }},
+                        {{ $summary->total_overhead }},
+                        {{ $summary->total_tax }},
+                        {{ $summary->total_gross_profit }}
                     ],
                     backgroundColor: [
                         '#2ecc71', // Markup - Green
@@ -447,8 +478,46 @@ $pricingComparison = [
             }
         });
 
-        // Pesan untuk developer
-        console.log('Dashboard markup system loaded. Run migrations to enable real data.');
+        // Auto refresh dashboard setiap 2 menit
+        function refreshDashboard() {
+            fetch('/api/dashboard/summary')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.summary) {
+                        // Update card values
+                        document.querySelectorAll('.card')[0].querySelector('div[style*="font-size:1.6rem"]').textContent = 
+                            'Rp ' + data.summary.total_sales.toLocaleString('id-ID');
+                        
+                        document.querySelectorAll('.card')[1].querySelector('div[style*="font-size:1.6rem"]').textContent = 
+                            'Rp ' + data.summary.total_markup.toLocaleString('id-ID');
+                        
+                        document.querySelectorAll('.card')[2].querySelector('div[style*="font-size:1.6rem"]').textContent = 
+                            'Rp ' + (data.summary.total_overhead + data.summary.total_tax).toLocaleString('id-ID');
+                        
+                        document.querySelectorAll('.card')[3].querySelector('div[style*="font-size:1.6rem"]').textContent = 
+                            'Rp ' + data.summary.total_gross_profit.toLocaleString('id-ID');
+                        
+                        // Update margin
+                        const marginElement = document.querySelectorAll('.card')[0].querySelector('span[style*="color"]');
+                        if (marginElement) {
+                            marginElement.textContent = data.summary.margin_percent.toFixed(1) + '%';
+                            marginElement.style.color = data.summary.margin_percent >= 20 ? '#27ae60' : 
+                                                       (data.summary.margin_percent >= 10 ? '#f39c12' : '#e74c3c');
+                        }
+                        
+                        // Show notification
+                        const now = new Date();
+                        console.log('Dashboard updated at ' + now.toLocaleTimeString());
+                    }
+                })
+                .catch(error => console.error('Error refreshing dashboard:', error));
+        }
+
+        // Start auto refresh
+        setInterval(refreshDashboard, 120000); // 2 minutes
+        
+        // Refresh pertama kali setelah 5 detik
+        setTimeout(refreshDashboard, 5000);
     </script>
     @endpush
 
@@ -490,6 +559,35 @@ $pricingComparison = [
         .card {
             padding: 15px;
         }
+    }
+    
+    /* Badge styles */
+    .badge {
+        display: inline-block;
+        padding: 4px 10px;
+        border-radius: 12px;
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+    
+    .badge-auto {
+        background: #e3f2fd;
+        color: #1976d2;
+    }
+    
+    .badge-manual {
+        background: #f3e5f5;
+        color: #7b1fa2;
+    }
+    
+    /* Loading animation */
+    @keyframes pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.5; }
+    }
+    
+    .loading {
+        animation: pulse 1.5s infinite;
     }
     </style>
 

@@ -113,6 +113,27 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'db_ksa' => [
+        'driver' => 'mysql',
+        'url' => env('DATABASE_URL_KSA'),
+        'host' => env('DB_HOST_KSA', '10.83.128.87'),
+        'port' => env('DB_PORT_KSA', '3306'),
+        'database' => env('DB_DATABASE_KSA', 'db_ksa'),
+        'username' => env('DB_USERNAME_KSA', 'siloam_2021'),
+        'password' => env('DB_PASSWORD_KSA', '51l04mH05p1t4l51!.'),
+        'unix_socket' => env('DB_SOCKET_KSA', ''),
+        'charset' => 'latin1',
+        'collation' => 'latin1_swedish_ci',
+        'prefix' => '',
+        'prefix_indexes' => true,
+        'strict' => false,
+        'engine' => 'MyISAM',
+        'options' => extension_loaded('pdo_mysql') ? array_filter([
+            PDO::MYSQL_ATTR_SSL_CA => env('MYSQL_ATTR_SSL_CA'),
+        ]) : [],
+    ],
+
+
     ],
 
     /*
